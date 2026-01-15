@@ -25,15 +25,23 @@ def handler(event, context):
     policy = policy_response['InlinePolicy']
     timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H-%M-%S')
     
-    branch = codecommit.get_branch(repositoryName=repo_name, branchName='main')
+    try:
+        branch = codecommit.get_branch(repositoryName=repo_name, branchName='main')
+        parent_commit_id = branch['branch']['commitId']
+    except codecommit.exceptions.BranchDoesNotExistException:
+        parent_commit_id = None
     
-    codecommit.put_file(
-        repositoryName=repo_name,
-        branchName='main',
-        fileContent=policy,
-        filePath=f'{permission_set_name}/{timestamp}.json',
-        parentCommitId=branch['branch']['commitId'],
-        commitMessage=f'Policy update for {permission_set_name}',
-        name='IAM Identity Center Policy Versioner',
-        email='policy-versioner@example.com'
-    )
+    put_file_params = {
+        'repositoryName': repo_name,
+        'branchName': 'main',
+        'fileContent': policy,
+        'filePath': f'{permission_set_name}/{timestamp}.json',
+        'commitMessage': f'Policy update for {permission_set_name}',
+        'name': 'IAM Identity Center Policy Versioner',
+        'email': 'policy-versioner@example.com'
+    }
+    
+    if parent_commit_id:
+        put_file_params['parentCommitId'] = parent_commit_id
+    
+    codecommit.put_file(**put_file_params)
